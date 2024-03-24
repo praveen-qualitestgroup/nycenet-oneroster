@@ -6,11 +6,11 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
-class Districts extends Model
+class District extends Model
 {
     use HasFactory, SoftDeletes;
 
-    protected $table = 'districts';
+    protected $table = 'district';
 
     /**
      * Indicates if all mass assignment is enabled.
@@ -23,19 +23,12 @@ class Districts extends Model
      * The attributes that are mass assignable.
      */
     protected $fillable = [
-        'id',
+        'sourcedId',
+        'status',
         'name',
-        'ext_district_id',
-        'integration_id',
-        'addr_street',
-        'addr_unit',
-        'addr_postal_code',
-        'addr_city',
-        'addr_state',
-        'addr_country',
-        'phone',
-        'time_zone',
-        'properties',
+        'dateLastModified',
+        'identifier',
+        'type',
         'ext_updated_at',
         'deleted_at'
     ];

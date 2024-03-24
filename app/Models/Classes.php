@@ -10,7 +10,7 @@ class Classes extends Model
 {
     use HasFactory, SoftDeletes;
 
-    protected $table = 'classrooms';
+    protected $table = 'classroom';
 
     /**
      * Indicates if all mass assignment is enabled.
@@ -23,10 +23,12 @@ class Classes extends Model
      * The attributes that are mass assignable.
      */
     protected $fillable = [
-        'id',
-        'ext_class_id',
-        'school_id',
+        'sourcedId',
+        'status',
         'name',
+        'dateLastModified',
+        'identifier',
+        'type',
         'ext_updated_at',
         'deleted_at'
     ];

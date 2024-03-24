@@ -22,18 +22,12 @@ class Schools extends Model
      * The attributes that are mass assignable.
      */
     protected $fillable = [
-        'id',
+        'sourcedId',
+        'status',
         'name',
-        'ext_school_id',
-        'address',
-        'zip',
-        'city',
-        'state',
-        'country',
-        'phone',
-        'district_id',
-        'created_at',
-        'updated_at',
+        'dateLastModified',
+        'identifier',
+        'type',
         'ext_updated_at',
         'deleted_at'
     ];

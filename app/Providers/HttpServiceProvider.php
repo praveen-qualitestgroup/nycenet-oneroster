@@ -15,8 +15,11 @@ class HttpServiceProvider extends ServiceProvider
     protected $http;
     protected $headers;
     protected $accessTokenURL;
+    protected $apiUrl;
     protected $accessToken = "";
-
+    
+    CONST DEFAULT_ERROR_MESSAGE = 'We ran into an error';
+    CONST BAD_URL = 'The request URL is not correct';
     /**
      * Create a new service provider instance.
      * 
@@ -25,8 +28,9 @@ class HttpServiceProvider extends ServiceProvider
      */
     public function __construct(Client $client)
     {
-        $this->url = env("BASE_URL", null);
-        $this->accessTokenURL = env("EDLINK_API_URL", null) . "v1/integrations";
+        $this->url = env("BASE_URL");
+        $this->accessTokenURL = $this->url . env("TOKEN_URL");
+        $this->apiUrl = $this->url . env('API_URL');
         $this->http = $client;
         $this->headers = [
             'cache-control' => 'no-cache',
@@ -45,6 +49,11 @@ class HttpServiceProvider extends ServiceProvider
     {
         $this->accessToken = $accessToken;
     }
+    
+    public function getAccessToken() : string
+    {
+        return $this->accessToken;
+    }
 
     /**
      * Login and get the access token
@@ -52,10 +61,32 @@ class HttpServiceProvider extends ServiceProvider
      */
     public function generateNewToken() : void
     {
+        //authentication parameters
+        $formParams = [
+            'client_id' => env('CLIENT_ID'),
+            'client_secret' => env('CLIENT_SECRET'),
+            'grant_type' => 'client_credentials',
+            'scope' => env('SCOPE') 
+        ];
         
-        $accessToken = '';
-        $this->setAccessToken($accessToken);
+        $request = $this->http->post($this->accessTokenURL,[
+            'headers' => $this->headers,
+            'form_params' => $formParams,
+            'connect_timeout' => true,
+            'verify' => false, //Due to SSL issue
+            'timeout' => 3600,
+            'http_errors' => true,
+        ],);
+        
+        $response = $request->getBody()->getContents();
+        $status = $request ? $request->getStatusCode() : 500;
+        if($response && $status === 200 && $response !== null){
+            $data = json_decode($response,true);
+            $this->accessToken = $data['access_token'];
+        }
+        $this->setAccessToken($this->accessToken);
     }
+    
     /**
      * Get integrations from Edlink API
      * 
@@ -96,28 +127,46 @@ class HttpServiceProvider extends ServiceProvider
      */
     public function getResponse(string $uri = null): array|null
     {
-        ini_set('max_execution_time', 0);
-        $full_path = $this->url;
-        $full_path .= $uri;
-        $this->headers['authorization'] = 'Bearer ' . $this->accessToken;
-        if ($full_path != "") {
-            $request = $this->http->get($full_path, [
-                'headers' => $this->headers,
-                'timeout' => 3600,
-                'connect_timeout' => true,
-                'http_errors' => true,
-            ]);
-            $response = $request ? $request->getBody()->getContents() : null;
-            $status = $request ? $request->getStatusCode() : 500;
-            if ($response && $status === 200 && $response !== 'null') {
-                $response = json_decode($response, true);
-                if (array_key_exists('$next', $response)) {
-                    return $response = array_merge($response['$data'], $this->getResponse(basename($response['$next'])));
+        $response = [
+            'success' =>false,
+            'message' => self::DEFAULT_ERROR_MESSAGE, 
+            'status' => 500,
+            'data' => []
+        ];
+        
+        $fullPath = $this->apiUrl. $uri;
+        $this->headers['authorization'] = 'Bearer ' . $this->getAccessToken();
+        $this->headers['serviceAccountID'] = env('SERVICE_ACCOUNT');
+        
+        if($fullPath != "" && filter_var($fullPath, FILTER_VALIDATE_URL)) {
+            try {
+                $request = $this->http->get($fullPath, [
+                    'headers' => $this->headers,
+                    'timeout' => 3600,
+                    'connect_timeout' => true,
+                    'verify' => false,
+                    'http_errors' => true,
+                ]);
+                $data = $request ? $request->getBody()->getContents() : null;
+                $response['status'] = $request ? $request->getStatusCode() : 500;
+                if ($data && $response['status'] === 200 && $data !== 'null') {
+                    $response['success'] = true;
+                    $response['data'] = json_decode($data, true);
+                    $response['message'] = array_keys($response['data'])[0];
+                    return $response;
                 }
-                return array_merge($response['$data']);
+            } catch (Exception $ex) {
+                return $response = [
+                    'success' =>false,
+                    'message' => $ex->getMessage(), 
+                    'status' => $response['status'],
+                    'data' => []
+                ];
             }
+        }else{
+           $response = ['success' =>false, 'message' => self::BAD_URL,'status' => 500,'data' => []]; 
         }
-        return null;
+        return $response;
     }
     /**
      * Encrypt  token
