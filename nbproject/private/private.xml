@@ -5,9 +5,11 @@
         <group>
             <file>file:/C:/xampp/htdocs/edlink-lms-main/app/Providers/HttpServiceProvider.php</file>
             <file>file:/C:/xampp/htdocs/edlink-lms-main/app/Console/Commands/SyncIntegrations.php</file>
-            <file>file:/C:/xampp/htdocs/edlink-lms-main/app/Jobs/SyncDistrict.php</file>
+            <file>file:/C:/xampp/htdocs/edlink-lms-main/app/Services/DistrictService.php</file>
             <file>file:/C:/xampp/htdocs/edlink-lms-main/app/Console/Commands/SyncDistricts.php</file>
             <file>file:/C:/xampp/htdocs/edlink-lms-main/.gitignore</file>
+            <file>file:/C:/xampp/htdocs/edlink-lms-main/app/Jobs/SyncSchoolJob.php</file>
+            <file>file:/C:/xampp/htdocs/edlink-lms-main/app/Jobs/SyncDistrictJob.php</file>
         </group>
     </open-files>
 </project-private>

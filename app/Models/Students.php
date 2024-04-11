@@ -3,14 +3,15 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Foundation\Auth\User as Authenticatable;
+use Illuminate\Notifications\Notifiable;
 
-class District extends Model
+class Students extends Authenticatable
 {
-    use HasFactory, SoftDeletes;
+    use HasFactory, Notifiable, SoftDeletes;
 
-    protected $table = 'district';
+    protected $table = 'students';
 
     /**
      * Indicates if all mass assignment is enabled.
@@ -20,15 +21,15 @@ class District extends Model
     protected static $unguarded = true;
 
     /**
-     * The attributes that are mass assignable.
+     * The attributes that are mass assignable
      */
     protected $fillable = [
-        'sourcedId',
-        'status',
+        'ext_student_id',
+        'user_id',
+        'school_id',
+        'roster_provider_id',
         'name',
-        'dateLastModified',
-        'identifier',
-        'type',
+        'email',
         'ext_updated_at',
         'deleted_at'
     ];

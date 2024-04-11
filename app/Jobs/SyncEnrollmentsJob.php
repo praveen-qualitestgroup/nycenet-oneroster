@@ -11,16 +11,15 @@ use App\Services\SchoolService;
 use Exception;
 use Illuminate\Support\Facades\DB;
 
-class SyncSchoolJob implements ShouldQueue
+class SyncEnrollementJob implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
     /**
-     * School data from edlink
+     * Enrollment data from OneRoster
      */
-    protected $school;
-    protected $accessToken;
-
+    protected $enrollment;
+    
     /**
      * The number of seconds the job can run before timing out.
      *
@@ -38,28 +37,27 @@ class SyncSchoolJob implements ShouldQueue
     /**
      * Create a new job instance.
      * 
-     * @param array $school
-     * @param string $accessToken
+     * @param array $enrollment
      * 
      */
-    public function __construct(array $school)
+    public function __construct(array $enrollment)
     {
-        $this->school = $school;
+        $this->enrollment = $enrollment;
     }
 
 
     /**
      * Execute the job.
      * 
-     * @param SchoolService $schoolService
+     * @param SchoolService $userService
      * 
      * @return void
      */
-    public function handle(SchoolService $schoolService): void
+    public function handle(UserService $userService): void
     {
         try {
             DB::beginTransaction();
-            $schoolService->syncSchool($this->school);
+            $userService->syncTeachers($this->school);
             DB::commit();
         } catch (Exception $e) {
             DB::rollBack();

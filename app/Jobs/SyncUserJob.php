@@ -8,30 +8,30 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
-use App\Services\DistrictService;
+use App\Services\UserService;
 use Illuminate\Support\Facades\DB;
 
-class SyncDistrictJob implements ShouldQueue
+class SyncUserJob implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
     
-    public $district;
+    public $users;
     /**
      * Create a new job instance.
      */
-    public function __construct(array $district)
+    public function __construct(array $users)
     {
-        $this->district = $district;
+        $this->users = $users;
     }
 
     /**
      * Execute the job.
      */
-    public function handle(DistrictService $districtService): void
+    public function handle(UserService $userService): void
     {
         try {
             DB::beginTransaction();
-            $districtService->syncDistrict($this->district);
+            $userService->syncUsers($this->users);
             DB::commit();
         } catch (Exception $e) {
             DB::rollBack();

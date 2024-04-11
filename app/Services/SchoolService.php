@@ -6,6 +6,7 @@ use App\Models\Schools;
 use App\Models\Districts;
 use App\Providers\HttpServiceProvider;
 use Carbon\Carbon;
+use App\Services\DistrictService;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Redis;
 
@@ -54,54 +55,35 @@ class SchoolService
      * 
      * @return void
      */
-    public function syncSchool(array $school, string $accessToken): void
+    public function syncSchool(array $school): void
     {
-        Redis::pipeline(function ($pipe) use ($school, $accessToken) {
-            $schoolHash = md5(json_encode($school));
-            //enter only if hash is changed
-            if (
-                !Redis::exists(static::REDIS_FIELD_KEY . $school['id']) ||
-                (Redis::exists(static::REDIS_FIELD_KEY . $school['id']) &&
-                    (Redis::get(static::REDIS_FIELD_KEY . $school['id']) !== $schoolHash)
-                )
-            ) {
-                //Insert or update the hash and db value
-                $pipe->set(static::REDIS_FIELD_KEY . $school['id'], $schoolHash);
-                $districtId = Districts::where('ext_district_id', $school['district_id'])->exists() ? Districts::where('ext_district_id', $school['district_id'])->first()->id : NULL;
-                foreach ($school['identifiers'] as $identifier) {
-                    if ($identifier['type'] === 'sis_id') {
-                        $code = $identifier['value'];
-                        break;
-                    }
-                }
-
-
-                Schools::withTrashed()->updateOrCreate(
-                    ['ext_school_id' => $school['id']],
-                    [
-                        'district_id' => $districtId,
-                        'name' => $school['name'],
-                        'address' => $school['address']['unit'] . ' ' . $school['address']['street'] . ' ' . $school['location'] . ' ' . $school['address']['city'] . ' ' . $school['address']['state'] . ' ' . $school['address']['country'],
-                        'city' => $school['address']['city'] ?? 'Not Available',
-                        'state' => $school['address']['state'] ?? 'Not Available',
-                        'zip' => $school['address']['postal_code'],
-                        'phone' => $school['address']['phone'],
-                        'ext_updated_at' => Carbon::parse($school['updated_date']),
-                        'deleted_at' => NULL,
-                        'region_id' => env('REGION_ID', 0),
-                        'code' => $code ?? NULL,
-                        'status' => 1
-                    ]
-                );
-                Log::debug('Data for School with Id: ' . $school['id'] . ' and name: ' . $school['name'] . ' updated/created successfully');
-            } else {
-                Log::debug('Redis Key ' . static::REDIS_FIELD_KEY . $school['id'] . ' for School Id: ' . $school['id'] . ' already exists.');
-            }
-
-            $this->classService->syncClasses($school['id'], $accessToken);
-            $this->userService->syncUsers($school['id'], $accessToken);
-
-        });
-
+        Redis::pipeline(function ($pipe) use ($school) {
+        if(is_null(Redis::get(static::REDIS_FIELD_KEY.$school['sourcedId'])) ||
+        (!is_null(Redis::get(static::REDIS_FIELD_KEY.$school['sourcedId'])) &&
+        Redis::get(static::REDIS_FIELD_KEY.$school['sourcedId']) !== $school['dateLastModified']))
+        {
+            //Insert or update the hash and db value
+            $schoolData = Schools::withTrashed()->updateOrCreate(
+                [
+                 'ext_school_id' => trim($school['sourcedId'])
+                ],
+                [
+                    'ext_school_id' => trim($school['sourcedId']),
+                    'identifier' => trim($school['identifier']),
+                    'name' => $school['name'],
+                    'status' => $school['status'] == 'active' ? 1 : 0,
+                    'ext_updated_at' => Carbon::parse($school['dateLastModified']),
+                    'deleted_at' => NULL,
+                ]
+            );
+            
+            //After database entry is made set the Key
+            $pipe->set(DistrictService::REDIS_SCHOOL_ID_KEY.trim($school['sourcedId']),$schoolData->id);
+            $pipe->set(static::REDIS_FIELD_KEY. $school['sourcedId'], $school['dateLastModified']);
+            Log::debug('Data for School with Id: ' . $school['sourcedId'] . ' and name: ' . $school['name'] . ' updated/created successfully');
+        } else {
+            Log::debug('Redis Key ' . static::REDIS_FIELD_KEY . $school['sourcedId'] . ' already exists.');
+        }
+    });
     }
 }
