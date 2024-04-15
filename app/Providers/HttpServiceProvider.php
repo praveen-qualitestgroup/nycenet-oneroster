@@ -8,9 +8,6 @@ use Illuminate\Support\Facades\Log;
 
 class HttpServiceProvider extends ServiceProvider
 {
-    private static $secretKey = '795ce489124cdbb8d91ab7be2c28bb264af71ddd3e516c16f1060c20111d97a4';
-    private static $secretIv = '2FsjXrecPXmKPIx9fAsw2oR6l3YfDhxS';
-    private static $encryptMethod = "AES-256-CBC";
     protected $url;
     protected $http;
     protected $headers;
@@ -68,11 +65,11 @@ class HttpServiceProvider extends ServiceProvider
             'grant_type' => 'client_credentials',
             'scope' => env('SCOPE') 
         ];
-        
         $request = $this->http->post($this->accessTokenURL,[
             'headers' => $this->headers,
             'form_params' => $formParams,
-            'connect_timeout' => true,
+            'connect_timeout' => 300,
+            'read_timeout' => 300,
             'verify' => false, //Due to SSL issue
             'timeout' => 3600,
             'http_errors' => true,
@@ -87,37 +84,6 @@ class HttpServiceProvider extends ServiceProvider
         $this->setAccessToken($this->accessToken);
     }
     
-    /**
-     * Get integrations from Edlink API
-     * 
-     * @param string $applicationAccessToken
-     * 
-     * @return array
-     */
-    public function getIntegrations(string $applicationAccessToken): array
-    {
-
-        $this->headers = [
-            'authorization' => 'Bearer ' . $applicationAccessToken,
-            'cache-control' => 'no-cache',
-            'content-type' => 'application/x-www-form-urlencoded',
-        ];
-        $request = $this->http->get($this->accessTokenURL, [
-            'headers' => $this->headers,
-            'connect_timeout' => true,
-            'timeout' => 3600,
-            'http_errors' => true,
-        ]);
-
-        $response = $request ? $request->getBody()->getContents() : null;
-        $status = $request ? $request->getStatusCode() : 500;
-        if ($response && $status === 200 && $response !== 'null') {
-            $data = json_decode($response, true);
-            $this->accessToken = $data['$data'][0]['access_token'];
-        }
-        return $data;
-    }
-
     /**
      * Get response from Edlink API
      * 
@@ -143,7 +109,8 @@ class HttpServiceProvider extends ServiceProvider
                 $request = $this->http->get($fullPath, [
                     'headers' => $this->headers,
                     'timeout' => 3600,
-                    'connect_timeout' => true,
+                    'read_timeout' => 300,
+                    'connect_timeout' => 300,
                     'verify' => false,
                     'http_errors' => true,
                 ]);
@@ -167,36 +134,6 @@ class HttpServiceProvider extends ServiceProvider
            $response = ['success' =>false, 'message' => self::BAD_URL,'status' => 500,'data' => []]; 
         }
         return $response;
-    }
-    /**
-     * Encrypt  token
-     * 
-     * @param string $data
-     * 
-     * @return string
-     */
-    public static function tokenencrypt(string $data): string
-    {
-        $key = hash('sha256', self::$secretKey);
-        $iv = substr(hash('sha256', self::$secretIv), 0, 16);
-        $result = openssl_encrypt($data, self::$encryptMethod, $key, 0, $iv);
-        return $result = base64_encode($result);
-    }
-
-    /**
-     * Decrypt token
-     * 
-     * @param string $data
-     * 
-     * @return string
-     */
-    public static function tokendecrypt(string $data): string
-    {
-        // Log::info("data:" . $data);
-        $key = hash('sha256', self::$secretKey);
-        $iv = substr(hash('sha256', self::$secretIv), 0, 16);
-        $result = openssl_decrypt(base64_decode($data), self::$encryptMethod, $key, 0, $iv);
-        return $result;
     }
 
     /**

@@ -39,7 +39,7 @@ class ClassService
      * 
      * @return void
      */
-    public function syncClasses(string $extSchoolId, string $accessToken): void
+    public function syncClasses($class): void
     {
 
         $this->httpServiceProvider->setAccessToken($accessToken);

@@ -60,7 +60,7 @@ class UserService
             if($user['role'] === self::TEACHER){
                $this->syncTeacherData($user,$pipe);
             }else if($user['role'] === self::STUDENT){
-                die("WTF am i doing here");
+                $this->syncStudentData($user,$pipe);
             }
         });
     }
@@ -78,17 +78,49 @@ class UserService
                  'ext_user_id' => trim($user['sourcedId'])
                 ],
                 [
-                    'ext_user_id' => trim($user['sourcedId']),
-                    'identifiers' => trim($user['sourcedId']),
-                    'status' => $user['status'] === 'active' ? 1 : 0,
+                    'ext_user_id' => isset($user['sourcedId']) ? trim($user['sourcedId']) : NULL,
+                    'identifiers' => isset($user['sourcedId']) ? trim($user['sourcedId']) : NULL,
+                    'status' => isset($user['status']) && $user['status'] === 'active' ? 1 : 0,
                     'first_name' => isset($user['givenName']) ? $user['givenName'] : NULL,
                     'middle_name' => isset($user['middleName']) ? $user['middleName'] : NULL,
                     'last_name' => isset($user['familyName']) ? $user['familyName'] : NULL,
-                    'email' => $user['email'],
+                    'email' => isset($user['email']) ? trim($user['email']) : NULL,
                     'created_at' => Carbon::now(),
                     'school_id' => (Redis::get(DistrictService::REDIS_SCHOOL_ID_KEY.trim($user['orgs'][0]['sourcedId']))) ?? NULL,
-                    'user_type' => $user['role'],
-                    'ext_updated_at' => Carbon::parse($user['dateLastModified']),
+                    'user_type' => isset($user['role']) ? trim($user['role']) : NULL,
+                    'ext_updated_at' => isset($user['dateLastModified']) ? Carbon::parse($user['dateLastModified']) : Carbon::now() ,
+                    'deleted_at' => NULL,
+                ]
+            );
+            $pipe->set(static::REDIS_TEACHER_FIELD_KEY.trim($user['sourcedId']),$user['dateLastModified']);
+        }
+       }
+    }
+    
+    public function syncStudentData(array $user,$pipe){
+        //if either the Student's last modified date is changed or don't exists
+        if(is_null(Redis::get(static::REDIS_STUDENT_FIELD_KEY.trim($user['sourcedId']))) ||
+        (!is_null(Redis::get(static::REDIS_STUDENT_FIELD_KEY.trim($user['sourcedId']))) &&
+        Redis::get(static::REDIS_STUDENT_FIELD_KEY.trim($user['sourcedId'])) !== $user['dateLastModified'])){
+               if (Students::where('email', $user['email'])->first()){
+            Log::info("Student with email:" . $user['email'] . ' already exists in the db.');
+        } else {
+            $userDetail = User::withTrashed()->updateOrCreate(
+                [
+                 'ext_user_id' => trim($user['sourcedId'])
+                ],
+                [
+                    'ext_user_id' => isset($user['sourcedId']) ? trim($user['sourcedId']) : NULL,
+                    'identifiers' => isset($user['sourcedId']) ? trim($user['sourcedId']) : NULL,
+                    'status' => isset($user['status']) && $user['status'] === 'active' ? 1 : 0,
+                    'first_name' => isset($user['givenName']) ? $user['givenName'] : NULL,
+                    'middle_name' => isset($user['middleName']) ? $user['middleName'] : NULL,
+                    'last_name' => isset($user['familyName']) ? $user['familyName'] : NULL,
+                    'email' => isset($user['email']) ? trim($user['email']) : NULL,
+                    'created_at' => Carbon::now(),
+                    'school_id' => (Redis::get(DistrictService::REDIS_SCHOOL_ID_KEY.trim($user['orgs'][0]['sourcedId']))) ?? NULL,
+                    'user_type' => isset($user['role']) ? trim($user['role']) : NULL,
+                    'ext_updated_at' => isset($user['dateLastModified']) ? Carbon::parse($user['dateLastModified']) : Carbon::now() ,
                     'deleted_at' => NULL,
                 ]
             );

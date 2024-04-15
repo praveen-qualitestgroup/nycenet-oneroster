@@ -5,10 +5,12 @@ namespace App\Console\Commands;
 use Illuminate\Console\Command;
 use App\Providers\HttpServiceProvider;
 use Illuminate\Support\Facades\Log;
+use App\Services\DistrictService;
 use Illuminate\Support\Facades\Redis;
 use App\Jobs\SyncDistrictJob;
 use App\Models\Districts;
 use App\Models\Schools;
+use App\Models\User;
 use App\Jobs\SyncSchoolJob;
 use App\Jobs\SyncUserJob;
 function p($data){
@@ -66,15 +68,15 @@ class SyncDistricts extends Command
             $teacherResponse = $this->httpServiceProvider->getResponse('teachers');
             if($teacherResponse['success'] === true && $teacherResponse['status'] === 200){
                 $newUsers = $this->setUsersJobs($teacherResponse);
-//                $this->checkDeletedUsers($newUsers);
+                $this->checkDeletedUsers($newUsers);
             }
             
-//            $this->info("Syncing Students data from OneRoster API");
-//            $studentsResponse = $this->httpServiceProvider->getResponse('students');
-//            if($studentsResponse['success'] === true  && $studentsResponse['status'] === 200){
-//                $newStudents = $this->setTeachersJobs($studentsResponse);
-//                $this->checkDeletedUsers($newStudents);
-//            }
+            $this->info("Syncing Students data from OneRoster API");
+            $studentsResponse = $this->httpServiceProvider->getResponse('students');
+            if($studentsResponse['success'] === true  && $studentsResponse['status'] === 200){
+                $newStudents = $this->setUsersJobs($studentsResponse);
+                $this->checkDeletedUsers($newStudents);
+            }
         } catch (Exception $ex) {
             Log::debug("failed in syncDistrict with error: ". $ex->getMessage());
         }
@@ -130,7 +132,7 @@ class SyncDistricts extends Command
                 //get teachers for all the organizations the user has access to
                 foreach ($user['orgs'] as $org){
                     if($org['type'] === 'org'){
-                        $newUsers[trim($org['sourcedId'])] = trim($user['sourcedId']);
+                        $newUsers[trim($org['sourcedId'])][] = trim($user['sourcedId']);
                     }
                 }
             }
@@ -138,13 +140,16 @@ class SyncDistricts extends Command
         return $newUsers;
     }
     
-//    public function checkDeletedUsers($users) : void
-//    {
-//        foreach ($user as $org => $userGroup){
-//            forEach($userGroup as $user){
-//                
-//            }
-//        }
-//    }
+    public function checkDeletedUsers($users) : void
+    {
+        foreach ($users as $org => $userGroup){
+            $schoolId = Redis::get(DistrictService::REDIS_SCHOOL_ID_KEY.trim($org));
+            $dbUsers = User::where('school_id',$schoolId)->pluck('ext_user_id')->toArray();
+            $usersToBeDeleted = array_diff($dbUsers,$userGroup);
+            if(!empty($usersToBeDeleted)){
+                User::whereIn('ext_student_id',$usersToBeDeleted)->delete();
+            }
+        }
+    }
     
 }
